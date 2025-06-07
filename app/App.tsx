@@ -1,17 +1,25 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Network from "expo-network";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { Appbar, Button, Surface, Text, TextInput } from "react-native-paper";
+import { useForegroundService } from "./useForegroundService";
 import { useLocalServer } from "./useLocalServer";
 
+const PORT = 9666;
+
 export function App() {
-  useLocalServer();
+  useLocalServer(PORT);
+
+  const foregroundService = useForegroundService();
 
   const [values, setValues] = useState({
     token: "",
     clid: "",
     secret: "",
   });
+
+  const [ipAddress, setIpAddress] = useState("");
 
   const [isRunning, setIsRunning] = useState(false);
 
@@ -21,11 +29,22 @@ export function App() {
     });
   }, []);
 
+  useEffect(() => {
+    Network.getIpAddressAsync().then(setIpAddress);
+  }, []);
+
   const updateValues = (field: string, value: string) => {
     const nextValues = { ...values, [field]: value };
     setValues(nextValues);
     AsyncStorage.setItem("data", JSON.stringify(nextValues));
   };
+
+  const handlePress = () =>
+    setIsRunning((isRunning) => {
+      if (isRunning) foregroundService.stop();
+      else foregroundService.start();
+      return !isRunning;
+    });
 
   return (
     <View style={{ flexGrow: 1 }}>
@@ -36,6 +55,19 @@ export function App() {
         />
       </Appbar.Header>
       <Surface style={{ flexGrow: 1, padding: 12 }} elevation={4}>
+        <View
+          style={{
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text
+            style={{ fontSize: 20, fontWeight: "bold", paddingBlockStart: 24 }}
+          >
+            IP адреса: {ipAddress}:{PORT}
+          </Text>
+        </View>
+
         <View style={{ flexGrow: 1, justifyContent: "center", gap: 8 }}>
           <TextInput
             mode="outlined"
@@ -61,7 +93,7 @@ export function App() {
         </View>
         <Button
           mode="contained"
-          onPress={() => setIsRunning((isRunning) => !isRunning)}
+          onPress={handlePress}
           style={{
             borderRadius: 12,
             justifyContent: "center",
