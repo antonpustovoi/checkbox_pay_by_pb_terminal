@@ -1,11 +1,20 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Appbar, Button, Surface, Text, TextInput } from "react-native-paper";
+import { useForegroundService } from "./useForegroundService";
 import { useLocalServer } from "./useLocalServer";
+import { useNetworkData } from "./useNetworkData";
+
+const PORT = 9666;
 
 export function App() {
-  useLocalServer();
+  useLocalServer(PORT);
+
+  const foregroundService = useForegroundService();
+
+  const { ipAddress } = useNetworkData();
 
   const [values, setValues] = useState({
     token: "",
@@ -19,6 +28,9 @@ export function App() {
     AsyncStorage.getItem("data").then((data) => {
       if (data) setValues(JSON.parse(data));
     });
+    AsyncStorage.getItem("isServiceRunning").then((data) => {
+      setIsRunning(Boolean(data));
+    });
   }, []);
 
   const updateValues = (field: string, value: string) => {
@@ -27,41 +39,49 @@ export function App() {
     AsyncStorage.setItem("data", JSON.stringify(nextValues));
   };
 
+  const handlePress = () =>
+    setIsRunning((isRunning) => {
+      if (isRunning) foregroundService.stop();
+      else foregroundService.start();
+      return !isRunning;
+    });
+
+  const renderInput = (label: string, field: "token" | "clid" | "secret") => (
+    <TextInput
+      mode="outlined"
+      label={label}
+      value={values[field]}
+      disabled={isRunning}
+      onChangeText={(value) => updateValues(field, value)}
+    />
+  );
+
   return (
-    <View style={{ flexGrow: 1 }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <Appbar.Header>
         <Appbar.Content
           title="Checkbox - Оплата через Термінал"
           style={{ alignItems: "center" }}
         />
       </Appbar.Header>
-      <Surface style={{ flexGrow: 1, padding: 12 }} elevation={4}>
-        <View style={{ flexGrow: 1, justifyContent: "center", gap: 8 }}>
-          <TextInput
-            mode="outlined"
-            label="Токен Інтеграції"
-            value={values.token}
-            disabled={isRunning}
-            onChangeText={(value) => updateValues("token", value)}
-          />
-          <TextInput
-            mode="outlined"
-            label="CLID"
-            value={values.clid}
-            disabled={isRunning}
-            onChangeText={(value) => updateValues("clid", value)}
-          />
-          <TextInput
-            mode="outlined"
-            label="Secret"
-            value={values.secret}
-            disabled={isRunning}
-            onChangeText={(value) => updateValues("secret", value)}
-          />
+      <Surface
+        style={{ flex: 1, padding: 12, justifyContent: "space-between" }}
+      >
+        <View style={{ alignItems: "center", justifyContent: "center" }}>
+          <Text
+            style={{ fontSize: 20, fontWeight: "bold", paddingBlockStart: 24 }}
+          >
+            IP адреса: {ipAddress}:{PORT}
+          </Text>
+        </View>
+        <View style={{ justifyContent: "center", gap: 8 }}>
+          {renderInput("Токен Інтеграції", "token")}
+          {renderInput("CLID", "clid")}
+          {renderInput("Secret", "secret")}
         </View>
         <Button
           mode="contained"
-          onPress={() => setIsRunning((isRunning) => !isRunning)}
+          onPress={handlePress}
           style={{
             borderRadius: 12,
             justifyContent: "center",
@@ -81,6 +101,6 @@ export function App() {
           </Text>
         </Button>
       </Surface>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
